@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pages       = intval($_POST['pages']);
     $price       = intval($_POST['price']);
     $quantity    = intval($_POST['quantity']);
+    $mota        = $conn->real_escape_string(trim($_POST['mota'] ?? ''));
     $image_url   = '';
 
     // Xử lý upload ảnh
@@ -62,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($price <= 0) {
             $error = 'Giá sách phải lớn hơn 0.';
         } else {
-            $sql = "INSERT INTO products (Name, Category_ID, TacGia, NhaXuatBan, NamXuatBan, SoTrang, Price, Quantity, Image_URL, Update_at)
-                    VALUES ('$name', $category_id, '$author', '$publisher', $year, $pages, $price, $quantity, '$image_url', NOW())";
+            $sql = "INSERT INTO products (Name, Category_ID, TacGia, NhaXuatBan, NamXuatBan, SoTrang, Price, Quantity, MoTa, Image_URL, Update_at)
+                    VALUES ('$name', $category_id, '$author', '$publisher', $year, $pages, $price, $quantity, '$mota', '$image_url', NOW())";
             if ($conn->query($sql)) {
                 $success = 'Thêm sách thành công!';
             } else {
@@ -211,6 +212,11 @@ $categories = $conn->query("SELECT * FROM category ORDER BY ID");
                                     <label for="pages">Số trang</label>
                                     <input type="number" id="pages" name="pages" min="1" placeholder="VD: 320">
                                 </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="mota">Mô tả sách</label>
+                                <textarea id="mota" name="mota" rows="5" placeholder="Nhập mô tả ngắn về nội dung sách..."></textarea>
                             </div>
                         </div>
                     </div>

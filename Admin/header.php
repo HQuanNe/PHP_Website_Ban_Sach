@@ -2,6 +2,8 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+include 'Connect/connect.php';
+$header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -63,9 +65,12 @@ if (session_status() === PHP_SESSION_NONE) {
                         <h5>TẤT CẢ DANH MỤC</h5>
                         <div class="header-bottom-category_details">
                             <ul>
-                                <li>Văn học</li>
-                                <li>Cổ tích</li>
-                                <li>Kỹ năng</li>
+                                <li <?= !isset($_GET['cat']) ? 'class="cat-active"' : '' ?>><a href="index.php" style="text-decoration:none; color:inherit;">Tất cả</a></li>
+                                <?php if ($header_categories): $header_categories->data_seek(0); while ($hcat = $header_categories->fetch_assoc()): ?>
+                                    <li <?= (isset($_GET['cat']) && intval($_GET['cat']) == $hcat['ID']) ? 'class="cat-active"' : '' ?>>
+                                        <a href="index.php?cat=<?= $hcat['ID'] ?>" style="text-decoration:none; color:inherit;"><?= htmlspecialchars($hcat['Decription']) ?></a>
+                                    </li>
+                                <?php endwhile; endif; ?>
                             </ul>
                         </div>
                     </span>
