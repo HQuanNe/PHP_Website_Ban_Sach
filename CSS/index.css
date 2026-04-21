@@ -573,7 +573,7 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 16px;
-    padding: 20px;
+    padding: 20px 40px;
 }
 
 /* ======== Product Card ======== */
@@ -654,9 +654,9 @@ body {
 }
 
 .btn-preview {
-    background-color: rgba(255,255,255,0.15);
+    background-color: rgba(255, 255, 255, 0.15);
     color: #fff;
-    border: 1.5px solid rgba(255,255,255,0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
     border-radius: 20px;
     padding: 7px 16px;
     font-size: 13px;
@@ -670,7 +670,7 @@ body {
 }
 
 .btn-preview:hover {
-    background-color: rgba(255,255,255,0.9);
+    background-color: rgba(255, 255, 255, 0.9);
     color: var(--color-5);
     transform: scale(1.05);
 }

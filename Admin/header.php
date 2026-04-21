@@ -11,10 +11,13 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dream book</title>
+    <!-- PHP truyền trạng thái login xuống JS qua meta tag -->
+    <meta name="user-logged" content="<?= isset($_SESSION['user_id']) ? '1' : '0' ?>">
 
     <link rel="icon" href="Resource/Image/Logo/LogoNoText.webp">
     <link rel="stylesheet" href="CSS/index.css">
     <link rel="stylesheet" href="CSS/default.css">
+    <link rel="stylesheet" href="CSS/cart.css">
     <link rel="stylesheet" href="Resource/FontAwesome/fontawesome-free-7.2.0-web/css/all.min.css">
 </head>
 <body>
@@ -29,9 +32,9 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                     <input type="text" name="header-mid-search" id="" placeholder="Tìm kiếm...">
                     <button><i style="color: #fff;" class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
-                <div class="header-mid-cart">
-                    <i style="color: #7a6f63;" class="fa-solid fa-cart-shopping"></i>
-                    <span class="header-mid-cart_quantity">5</span>
+                <div class="cart-btn" onclick="openCart()" title="Giỏ hàng">
+                    <i style="color: #7a6f63; font-size:22px;" class="fa-solid fa-cart-shopping"></i>
+                    <span class="cart-badge" id="cartBadge">0</span>
                 </div>
                 
                 <?php if (isset($_SESSION['username'])): ?>
@@ -88,6 +91,47 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
         </div>
         <div class="container-dynamicBanner"></div>
     </div>
+
+    <!-- ══ CART OVERLAY — Nền tối khi drawer mở ══════════════════════ -->
+    <div id="cartOverlay" class="cart-overlay" onclick="closeCart()"></div>
+
+    <!-- ══ CART DRAWER — Panel giỏ hàng trượt từ phải ════════════════
+         Cấu trúc: Header | Danh sách items (scroll) | Footer tổng tiền
+         Dữ liệu được render bởi cart.js (cartRenderItems()).
+    ════════════════════════════════════════════════════════════════ -->
+    <div id="cartDrawer" class="cart-drawer">
+
+        <!-- Header drawer -->
+        <div class="cart-drawer-header">
+            <h3><i class="fa-solid fa-cart-shopping"></i> Giỏ hàng</h3>
+            <button class="cart-drawer-close" onclick="closeCart()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Danh sách sản phẩm (JS render vào đây) -->
+        <div class="cart-items-wrap" id="cartItemsWrap">
+            <!-- Thông báo giỏ trống (ẩn khi có hàng) -->
+            <div class="cart-empty-msg" id="cartEmpty">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span>Giỏ hàng của bạn đang trống</span>
+            </div>
+        </div>
+
+        <!-- Footer: tổng tiền + nút thanh toán -->
+        <div class="cart-footer">
+            <div class="cart-total-row">
+                <span class="cart-total-label">Tổng cộng:</span>
+                <span class="cart-total-amount" id="cartTotal">0 ₫</span>
+            </div>
+            <button class="cart-checkout-btn" onclick="goCheckout()">
+                <i class="fa-solid fa-money-bill-wave"></i> Thanh toán
+            </button>
+            <button class="cart-clear-btn" onclick="clearCart()">
+                <i class="fa-solid fa-trash"></i> Xóa toàn bộ giỏ hàng
+            </button>
+        </div>
+    </div><!-- /.cart-drawer -->
 
     <!-- Modal Popup Đăng nhập / Đăng ký -->
     <div id="authModal" class="auth-modal">
@@ -199,7 +243,12 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                 
                 if (result.status === 'success') {
                     loginSuccessDOM.textContent = result.message;
-                    setTimeout(() => { location.reload(); }, 1000);
+                    // Trước khi reload: đồng bộ giỏ guest lên DB
+                    const guestItems = JSON.parse(sessionStorage.getItem('dreambook_cart') || '[]');
+                    if (typeof syncGuestCartToDB === 'function') {
+                        await syncGuestCartToDB(guestItems);
+                    }
+                    setTimeout(() => { location.reload(); }, 800);
                 } else {
                     loginErrorDOM.textContent = result.message;
                 }
@@ -247,5 +296,7 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
             }
         });
     </script>
+    <!-- Cart JS -->
+    <script src="JS/cart.js"></script>
 </body>
 </html>

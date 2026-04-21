@@ -111,7 +111,7 @@ $categories = $conn->query("SELECT * FROM category ORDER BY ID");
                     </a>
                     <ul class="nav-submenu">
                         <li><a href="add_product.php" class="active"><i class="fa-solid fa-plus"></i> Thêm sản phẩm</a></li>
-                        <li><a href="#"><i class="fa-solid fa-list"></i> Danh sách</a></li>
+                        <li><a href="product_list.php"><i class="fa-solid fa-list"></i> Danh sách</a></li>
                     </ul>
                 </li>
                 <li>
@@ -206,7 +206,7 @@ $categories = $conn->query("SELECT * FROM category ORDER BY ID");
                             <div class="form-row-2">
                                 <div class="form-group">
                                     <label for="year">Năm xuất bản</label>
-                                    <input type="number" id="year" name="year" min="1900" max="<?= date('Y') ?>" placeholder="2024">
+                                    <input type="number" id="year" name="year" min="1700" max="<?= date('Y') ?>" placeholder="2024">
                                 </div>
                                 <div class="form-group">
                                     <label for="pages">Số trang</label>

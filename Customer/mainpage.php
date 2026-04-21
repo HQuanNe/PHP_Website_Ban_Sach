@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * mainpage.php — Trang chủ hiển thị sản phẩm
  * --------------------------------------------------
@@ -96,7 +96,25 @@ if ($filter_cat_id > 0) {
                         <span class="cat-badge"></span>
                         <?= htmlspecialchars($cat['name']) ?>
                     </h2>
-                    <a href="#" class="cat-view-all">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>
+                    <?php
+                    /*
+                     * Nút "Xem tất cả":
+                     * - Ẩn khi danh mục có ≤ 6 sản phẩm (không cần mở rộng).
+                     * - Hiện + đếm số còn ẩn khi có > 6 sản phẩm.
+                     * - onclick gọi toggleCat(this) trong mainpage.js.
+                     */
+                    $total = count($cat['products']);
+                    $hidden = max(0, $total - 5);
+                    ?>
+                    <?php if ($hidden > 0): ?>
+                        <button class="cat-view-all"
+                                onclick="toggleCat(this)">
+                                Xem tất cả
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    <?php else: ?>
+                        <?php /* Không hiện nút nếu ≤ 6 sản phẩm */ ?>
+                    <?php endif; ?>
                 </div>
 
                 <?php if (empty($cat['products'])): ?>
@@ -106,8 +124,18 @@ if ($filter_cat_id > 0) {
                     </div>
                 <?php else: ?>
                     <div class="product-grid">
-                        <?php foreach ($cat['products'] as $p): ?>
-                            <div class="product-card"
+                        <?php
+                        /*
+                         * Vòng lặp in từng card sản phẩm.
+                         * $idx bắt đầu từ 0.
+                         * Card với $idx >= 6 (tức từ cuốn thứ 7 trở đi) sẽ được gắn
+                         * class "card-hidden" — CSS sẽ ẩn chúng ban đầu.
+                         */
+                        $idx = 0;
+                        foreach ($cat['products'] as $p):
+                            $extraClass = $idx >= 5 ? 'card-hidden' : '';
+                        ?>
+                            <div class="product-card <?= $extraClass ?>"
                                 data-id="<?= $p['ID'] ?>"
                                 data-name="<?= htmlspecialchars($p['Name'], ENT_QUOTES) ?>"
                                 data-cat="<?= htmlspecialchars($cat['name'], ENT_QUOTES) ?>"
@@ -146,8 +174,8 @@ if ($filter_cat_id > 0) {
                                         </span>
                                     </div>
                                 </div>
-                            </div>
-                        <?php endforeach; ?>
+                            </div><!-- /.product-card -->
+                        <?php $idx++; endforeach; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -236,14 +264,80 @@ if ($filter_cat_id > 0) {
 /**
  * ================================================================
  *  JavaScript — mainpage.php
- *  Bao gồm 3 phần:
- *    A. showPreview()   : Điền dữ liệu vào modal và mở modal
- *    B. closePreview()  : Đóng modal (nút ×, click ngoài, ESC)
- *    C. Tilt Effect     : Hiệu ứng 3D tilt kiểu thẻ Pokémon khi hover ảnh
+ *  Bao gồm 4 phần:
+ *    A. toggleCat()     : Mở/đóng cards ẩn trong một danh mục
+ *    B. showPreview()   : Điền dữ liệu vào modal và mở modal
+ *    C. closePreview()  : Đóng modal (nút ×, click ngoài, ESC)
+ *    D. Tilt Effect     : Hiệu ứng 3D tilt kiểu thẻ Pokémon khi hover ảnh
  * ================================================================
  */
 
-// ── A. CẤU HÌNH MÔ TẢ ──────────────────────────────────────────────────
+// ── A. TOGGLE XEM TẤT CẢ / THU GỌN DANH MỤC ────────────────────────────
+/**
+ * toggleCat(btn)
+ * Gọi khi người dùng bấm nút "Xem tất cả" hoặc "Thu gọn" trên header danh mục.
+ *
+ * Logic:
+ *   1. Tìm .product-grid gần nhất trong cùng .category-section.
+ *   2. Lấy tất cả card có class "card-hidden".
+ *   3. Nếu đang đóng (chưa expanded):
+ *        - Bỏ class "card-hidden", thêm "card-showing" → CSS animation fade-in-up.
+ *        - Sau 350ms (animation xong) xoá "card-showing" cho sạch.
+ *        - Đổi nút thành "Thu gọn ▲".
+ *   4. Nếu đang mở (đã expanded):
+ *        - Thêm lại "card-hidden" → ẩn ngay.
+ *        - Đổi nút về "Xem tất cả (N cuốn nữa) ▼".
+ *
+ * @param {HTMLElement} btn - Nút .cat-view-all được bấm
+ */
+function toggleCat(btn) {
+    // Tìm container .category-section chứa nút này
+    const section = btn.closest('.category-section');
+    if (!section) return;
+
+    // Lấy tất cả card đang ẩn (class-hidden) trong grid của section này
+    const hiddenCards = section.querySelectorAll('.product-card.card-hidden');
+    const isExpanded  = btn.classList.contains('expanded');
+
+    if (!isExpanded) {
+        // ── MỞ RỘNG: Hiện các card còn ẩn ──────────────────────────
+        hiddenCards.forEach((card, i) => {
+            // Thêm class card-showing trước để trigger animation
+            card.classList.add('card-showing');
+            // Delay nhỏ tăng dần → các card hiện ra lần lượt (stagger effect)
+            card.style.animationDelay = (i * 0.05) + 's';
+            // Xoá class card-hidden để card tham gia layout grid
+            card.classList.remove('card-hidden');
+            // Sau khi animation kết thúc, xoá card-showing (dọn dẹp)
+            setTimeout(() => card.classList.remove('card-showing'), 400 + i * 50);
+        });
+
+        // Cập nhật trạng thái nút
+        btn.classList.add('expanded');
+        btn.innerHTML = 'Thu gọn <i class="fa-solid fa-chevron-up"></i>';
+    } else {
+        // ── THU GỌN: Ẩn lại các card từ vị trí thứ 7 ──────────────
+        const allCards = section.querySelectorAll('.product-card');
+        let hiddenCount = 0;
+
+        allCards.forEach((card, i) => {
+            if (i >= 5) {
+                // Ẩn ngay, không cần animation
+                card.classList.add('card-hidden');
+                card.classList.remove('card-showing');
+                card.style.animationDelay = '';
+                hiddenCount++;
+            }
+        });
+
+        // Cập nhật trạng thái nút
+        btn.classList.remove('expanded');
+        btn.innerHTML = `Xem tất cả <i class="fa-solid fa-chevron-down"></i>`;
+    }
+}
+
+
+// ── B. CẤU HÌNH MÔ TẢ ──────────────────────────────────────────────────
 const DESC_LIMIT = 180;   // Số ký tự hiển thị trước khi cắt (Xem thêm)
 let _fullDesc = '';        // Lưu toàn bộ nội dung mô tả hiện tại
 
@@ -255,6 +349,9 @@ let _fullDesc = '';        // Lưu toàn bộ nội dung mô tả hiện tại
 function showPreview(card) {
     const d = card.dataset;
     const modal = document.getElementById('previewModal');
+
+    // Lưu lại card gốc để addToCartFromPreview() dùng
+    window._previewCard = card;
 
     // ── Thông tin cơ bản ────────────────────────────────────────────────
     document.getElementById('previewName').textContent  = d.name  || '';
