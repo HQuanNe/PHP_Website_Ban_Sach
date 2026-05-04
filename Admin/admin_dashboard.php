@@ -57,35 +57,45 @@ if ($page === 'add_product') {
     <?php if ($page === 'order_list'): ?>
     <style>
         .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .table th, .table td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; text-align: left; }
-        .table th { background-color: #f8f9fa; font-weight: 600; color: #495057; }
-        .table tbody tr:hover { background-color: #f1f3f5; }
+        .table th, .table td { padding: 12px 15px; border-bottom: 1px solid var(--admin-border); text-align: left; }
+        .table th { background-color: var(--admin-primary-light); font-weight: 600; color: var(--admin-primary-dark); }
+        .table tbody tr:hover { background-color: var(--admin-bg); }
         
         .badge { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge-warning { background-color: #ffc107; color: #212529; }
-        .badge-success { background-color: #28a745; color: #fff; }
-        .badge-danger { background-color: #dc3545; color: #fff; }
+        .badge-warning { background-color: var(--admin-accent); color: #fff; }
+        .badge-success { background-color: var(--admin-success); color: #fff; }
+        .badge-danger { background-color: var(--admin-danger); color: #fff; }
+        .badge-secondary { background-color: var(--admin-primary-light); color: var(--admin-primary-dark); }
 
-        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; }
-        .btn-info { background: #17a2b8; color: #fff; }
-        .btn-info:hover { background: #138496; }
+        .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-block; transition: all 0.2s; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; }
+        .btn-info { background: var(--admin-primary); color: #fff; }
+        .btn-info:hover { background: var(--admin-primary-dark); }
+        .btn-primary { background: var(--admin-primary-dark); color: #fff; }
+        .btn-primary:hover { background: #2a2723; }
+        .btn-outline-primary { background: transparent; color: var(--admin-primary-dark); border: 1px solid var(--admin-primary-dark); }
+        .btn-outline-primary:hover { background: var(--admin-primary-dark); color: #fff; }
+        .btn-danger { background: var(--admin-danger); color: #fff; }
+        .btn-danger:hover { background: #8a4343; }
+        .btn-success { background: var(--admin-success); color: #fff; }
+        .btn-success:hover { background: #4a724f; }
         
         /* Modal Chi tiết đơn hàng */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 0; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; overflow: hidden; }
-        .modal-header { padding: 15px 20px; background: #343a40; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .modal-content { background-color: var(--admin-card); margin: 5% auto; padding: 0; border: 1px solid var(--admin-border); width: 80%; max-width: 800px; border-radius: 8px; overflow: hidden; }
+        .modal-header { padding: 15px 20px; background: var(--admin-primary-dark); color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .modal-header h2 { margin: 0; font-size: 18px; }
-        .close-btn { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn { color: var(--admin-primary-light); font-size: 28px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .close-btn:hover { color: #fff; }
-        .modal-body { padding: 20px; }
+        .modal-body { padding: 20px; color: var(--admin-text); }
         
-        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
-        .detail-item strong { display: inline-block; width: 140px; color: #6c757d; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background: var(--admin-input-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--admin-border); }
+        .detail-item strong { display: inline-block; width: 140px; color: var(--admin-primary); }
         
         .status-form { display: flex; gap: 10px; align-items: center; }
-        .status-select { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
-        .btn-update { background: #007bff; color: #fff; }
-        .btn-update:hover { background: #0069d9; }
+        .status-select { padding: 8px; border: 1px solid var(--admin-border); border-radius: 4px; background: var(--admin-input-bg); }
+        .btn-update { background: var(--admin-primary); color: #fff; }
+        .btn-update:hover { background: var(--admin-primary-dark); }
     </style>
     <?php endif; ?>
 </head>
@@ -101,12 +111,6 @@ if ($page === 'add_product') {
         <nav class="sidebar-nav">
             <div class="nav-section-title">QUẢN LÝ</div>
             <ul>
-                <li>
-                    <a href="admin_dashboard.php?page=dashboard" class="nav-item <?= $page == 'dashboard' ? 'active' : '' ?>">
-                        <i class="fa-solid fa-gauge-high"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
                 <li class="<?= in_array($page, ['add_product', 'product_list']) ? 'active' : '' ?>">
                     <a href="#" class="nav-item <?= in_array($page, ['add_product', 'product_list']) ? 'active' : '' ?>">
                         <i class="fa-solid fa-box-open"></i>
@@ -153,9 +157,6 @@ if ($page === 'add_product') {
             </div>
             <div class="topbar-right">
                 <?php if ($page === 'product_list'): ?>
-                <a href="admin_dashboard.php?page=add_product" class="btn-save-edit" style="text-decoration:none;">
-                    <i class="fa-solid fa-plus"></i> Thêm sản phẩm
-                </a>
                 <?php endif; ?>
                 <div class="admin-user-info">
                     <i class="fa-solid fa-user-shield"></i>

@@ -17,11 +17,11 @@ include 'Connect/connect.php';
 // ?cat=ID → chỉ lấy danh mục đó; không có → hiển thị tất cả
 $filter_cat_id = isset($_GET['cat']) && is_numeric($_GET['cat']) ? intval($_GET['cat']) : 0;
 
-// ── 2. QUERY: SÁCH MỚI NHẤT (cột trái) ────────────────────────────────
-// Lấy 8 sản phẩm cập nhật gần nhất, join category để lấy tên danh mục
-$new_books = $conn->query("SELECT p.*, c.Decription as CatName 
-    FROM products p 
-    LEFT JOIN category c ON p.Category_ID = c.ID 
+$new_books = $conn->query("SELECT p.*, c.Decription as CatName, AVG(cmt.Rating) as avg_rating 
+    FROM products AS p 
+    LEFT JOIN category AS c ON p.Category_ID = c.ID 
+    LEFT JOIN Comment AS cmt ON p.ID = cmt.ID_product 
+    GROUP BY p.ID 
     ORDER BY p.Update_at DESC 
     LIMIT 8");
 
@@ -32,7 +32,12 @@ if ($filter_cat_id > 0) {
     $cat_res = $conn->query("SELECT * FROM category WHERE ID = $filter_cat_id");
     if ($cat_res && $cat = $cat_res->fetch_assoc()) {
         $cid = $cat['ID'];
-        $res = $conn->query("SELECT * FROM products WHERE Category_ID = $cid ORDER BY Update_at DESC");
+        $res = $conn->query("SELECT p.*, AVG(cmt.Rating) as avg_rating 
+                             FROM products p 
+                             LEFT JOIN Comment cmt ON p.ID = cmt.ID_product 
+                             WHERE p.Category_ID = $cid 
+                             GROUP BY p.ID 
+                             ORDER BY p.Update_at DESC");
         $products_by_cat[$cid] = ['name' => $cat['Decription'], 'products' => []];
         if ($res) while ($p = $res->fetch_assoc()) $products_by_cat[$cid]['products'][] = $p;
     }
@@ -41,7 +46,12 @@ if ($filter_cat_id > 0) {
     $cat_list = $conn->query("SELECT * FROM category ORDER BY ID");
     while ($cat = $cat_list->fetch_assoc()) {
         $cid = $cat['ID'];
-        $res = $conn->query("SELECT * FROM products WHERE Category_ID = $cid ORDER BY Update_at DESC");
+        $res = $conn->query("SELECT p.*, AVG(cmt.Rating) as avg_rating 
+                             FROM products p 
+                             LEFT JOIN Comment cmt ON p.ID = cmt.ID_product 
+                             WHERE p.Category_ID = $cid 
+                             GROUP BY p.ID 
+                             ORDER BY p.Update_at DESC");
         $products_by_cat[$cid] = ['name' => $cat['Decription'], 'products' => []];
         if ($res) while ($p = $res->fetch_assoc()) $products_by_cat[$cid]['products'][] = $p;
     }
@@ -64,7 +74,20 @@ if ($filter_cat_id > 0) {
             <ul class="new-books-list">
                 <?php if ($new_books && $new_books->num_rows > 0): ?>
                     <?php while ($book = $new_books->fetch_assoc()): ?>
-                        <li>
+                        <li class="new-book-item"
+                            data-id="<?= $book['ID'] ?>"
+                            data-name="<?= htmlspecialchars($book['Name'], ENT_QUOTES) ?>"
+                            data-cat="<?= htmlspecialchars($book['CatName'] ?? '', ENT_QUOTES) ?>"
+                            data-author="<?= htmlspecialchars($book['TacGia'] ?? '', ENT_QUOTES) ?>"
+                            data-publisher="<?= htmlspecialchars($book['NhaXuatBan'] ?? '', ENT_QUOTES) ?>"
+                            data-year="<?= htmlspecialchars($book['NamXuatBan'] ?? '', ENT_QUOTES) ?>"
+                            data-pages="<?= intval($book['SoTrang']) ?>"
+                            data-price="<?= number_format($book['Price'], 0, ',', '.') ?>"
+                            data-qty="<?= intval($book['Quantity']) ?>"
+                            data-desc="<?= htmlspecialchars($book['MoTa'] ?? '', ENT_QUOTES) ?>"
+                            data-img="<?= htmlspecialchars($book['Image_URL'] ?? '', ENT_QUOTES) ?>"
+                            onclick="showPreview(this)"
+                            style="cursor: pointer;">
                             <?php if (!empty($book['Image_URL']) && file_exists($book['Image_URL'])): ?>
                                 <img src="<?= htmlspecialchars($book['Image_URL']) ?>" alt="<?= htmlspecialchars($book['Name']) ?>">
                             <?php else: ?>
@@ -72,6 +95,11 @@ if ($filter_cat_id > 0) {
                             <?php endif; ?>
                             <div class="book-info">
                                 <h4><?= htmlspecialchars($book['Name']) ?></h4>
+                                <?php if (isset($book['avg_rating']) && $book['avg_rating'] > 0): ?>
+                                    <div style="font-size: 11px; color: #ffc107; margin-bottom: 2px;">
+                                        <i class="fa-solid fa-star"></i> <?= number_format($book['avg_rating'], 1) ?>
+                                    </div>
+                                <?php endif; ?>
                                 <p class="price"><?= number_format($book['Price'], 0, ',', '.') ?> ₫</p>
                             </div>
                         </li>
@@ -157,7 +185,7 @@ if ($filter_cat_id > 0) {
                                     <?php endif; ?>
                                     <div class="product-card-overlay">
                                         <button class="btn-add-cart"><i class="fa-solid fa-cart-plus"></i> Thêm giỏ</button>
-                                        <button class="btn-preview" onclick="showPreview(this.closest('.product-card'))"><i class="fa-solid fa-eye"></i> Preview</button>
+                                        <button class="btn-preview" onclick="showPreview(this.closest('.product-card'))"><i class="fa-solid fa-eye"></i> Xem chi tiết</button>
                                     </div>
                                 </div>
                                 <div class="product-card-body">
@@ -166,6 +194,11 @@ if ($filter_cat_id > 0) {
                                     </h4>
                                     <?php if (!empty($p['TacGia'])): ?>
                                         <p class="product-author"><i class="fa-solid fa-pen-nib"></i> <?= htmlspecialchars($p['TacGia']) ?></p>
+                                    <?php endif; ?>
+                                    <?php if (isset($p['avg_rating']) && $p['avg_rating'] > 0): ?>
+                                        <div style="font-size: 13px; color: #ffc107; margin-bottom: 5px;">
+                                            <i class="fa-solid fa-star"></i> <?= number_format($p['avg_rating'], 1) ?>/5
+                                        </div>
                                     <?php endif; ?>
                                     <div class="product-card-footer">
                                         <span class="product-price"><?= number_format($p['Price'], 0, ',', '.') ?> ₫</span>
@@ -220,40 +253,78 @@ if ($filter_cat_id > 0) {
                 <span class="preview-cat-tag" id="previewCat"></span>
                 <h2 class="preview-title" id="previewName"></h2>
                 <p class="preview-price-big" id="previewPrice"></p>
-                <?php /* Bảng 4 dòng: Tác giả, NXB, Năm XB, Số trang
-                 * JS luôn show tất cả dòng; dùng — khi field rỗng */ ?>
-                <div class="preview-details">
-                    <div class="preview-detail-row" id="rowAuthor">
-                        <span class="detail-label"><i class="fa-solid fa-pen-nib"></i> Tác giả</span>
-                        <span class="detail-value" id="previewAuthor"></span>
+                <div class="preview-tabs-container">
+                    <div class="preview-tabs">
+                        <button class="preview-tab active" onclick="switchPreviewTab('details', this)">Chi tiết</button>
+                        <button class="preview-tab" onclick="switchPreviewTab('comments', this)">Bình luận</button>
                     </div>
-                    <div class="preview-detail-row" id="rowPublisher">
-                        <span class="detail-label"><i class="fa-solid fa-building"></i> NXB</span>
-                        <span class="detail-value" id="previewPublisher"></span>
-                    </div>
-                    <div class="preview-detail-row" id="rowYear">
-                        <span class="detail-label"><i class="fa-solid fa-calendar"></i> Năm XB</span>
-                        <span class="detail-value" id="previewYear"></span>
-                    </div>
-                    <div class="preview-detail-row" id="rowPages">
-                        <span class="detail-label"><i class="fa-solid fa-book-open"></i> Số trang</span>
-                        <span class="detail-value" id="previewPages"></span>
-                    </div>
-                </div><!-- /.preview-details -->
 
-                <?php /* Khối mô tả — ẩn hoàn toàn khi MoTa rỗng
-                 * Mô tả > 180 ký tự → cắt + nút Xem thêm/Thu gọn */ ?>
-                <div class="preview-desc-wrap" id="rowDesc">
-                    <p class="desc-section-label"><i class="fa-solid fa-align-left"></i> Mô tả</p>
-                    <p class="preview-desc" id="previewDesc"></p>
-                    <button class="desc-toggle" id="descToggle" style="display:none;"
-                        onclick="toggleDesc(this)">Xem thêm <i class="fa-solid fa-chevron-down"></i></button>
-                </div><!-- /.preview-desc-wrap -->
+                    <!-- TAB CHI TIẾT -->
+                    <div id="previewTabDetails" class="preview-tab-content active">
+                        <div class="preview-details">
+                            <div class="preview-detail-row" id="rowAuthor">
+                                <span class="detail-label"><i class="fa-solid fa-pen-nib"></i> Tác giả</span>
+                                <span class="detail-value" id="previewAuthor"></span>
+                            </div>
+                            <div class="preview-detail-row" id="rowPublisher">
+                                <span class="detail-label"><i class="fa-solid fa-building"></i> NXB</span>
+                                <span class="detail-value" id="previewPublisher"></span>
+                            </div>
+                            <div class="preview-detail-row" id="rowYear">
+                                <span class="detail-label"><i class="fa-solid fa-calendar"></i> Năm XB</span>
+                                <span class="detail-value" id="previewYear"></span>
+                            </div>
+                            <div class="preview-detail-row" id="rowPages">
+                                <span class="detail-label"><i class="fa-solid fa-book-open"></i> Số trang</span>
+                                <span class="detail-value" id="previewPages"></span>
+                            </div>
+                        </div><!-- /.preview-details -->
+
+                        <div class="preview-desc-wrap" id="rowDesc">
+                            <p class="desc-section-label"><i class="fa-solid fa-align-left"></i> Mô tả</p>
+                            <p class="preview-desc" id="previewDesc"></p>
+                            <button class="desc-toggle" id="descToggle" style="display:none;"
+                                onclick="toggleDesc(this)">Xem thêm <i class="fa-solid fa-chevron-down"></i></button>
+                        </div><!-- /.preview-desc-wrap -->
+                    </div>
+
+                    <!-- TAB BÌNH LUẬN -->
+                    <div id="previewTabComments" class="preview-tab-content">
+                        <div id="previewCommentsList" class="comments-list">
+                            <div style="text-align:center; padding:10px; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải bình luận...</div>
+                        </div>
+                        
+                        <div class="comment-form-wrap" id="commentFormWrap" style="display: none;">
+                            <?php if (isset($_SESSION['user_id'])): ?>
+                                <form id="commentForm" onsubmit="submitComment(event)">
+                                    <input type="hidden" id="commentProductId" value="">
+                                    <input type="hidden" id="commentRating" value="5">
+                                    <div class="rating-stars" id="ratingStars">
+                                        Đánh giá: 
+                                        <i class="fa-solid fa-star active" data-val="1"></i>
+                                        <i class="fa-solid fa-star active" data-val="2"></i>
+                                        <i class="fa-solid fa-star active" data-val="3"></i>
+                                        <i class="fa-solid fa-star active" data-val="4"></i>
+                                        <i class="fa-solid fa-star active" data-val="5"></i>
+                                    </div>
+                                    <textarea id="commentContent" rows="3" placeholder="Nhập đánh giá và bình luận của bạn..." required></textarea>
+                                    <button type="submit" class="btn-submit-comment" id="btnSubmitComment">Gửi đánh giá</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                        <div id="commentNoticeWrap" style="text-align:center; padding: 10px; background:#f8f9fa; border-radius:4px; font-size:14px;">
+                            <?php if (!isset($_SESSION['user_id'])): ?>
+                                Vui lòng <a href="login.php" style="color:#007bff; font-weight:bold;">Đăng nhập</a> để bình luận.
+                            <?php else: ?>
+                                <i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra điều kiện đánh giá...
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div><!-- /.preview-tabs-container -->
 
                 <?php /* Nút hành động: Thêm giỏ hàng + Mua ngay */ ?>
                 <div class="preview-actions">
                     <button class="preview-btn-cart"><i class="fa-solid fa-cart-plus"></i> Thêm vào giỏ hàng</button>
-                    <button class="preview-btn-buy"><i class="fa-solid fa-money-bill-wave"></i> Mua ngay</button>
                 </div>
             </div><!-- /.preview-info-col -->
         </div><!-- /.preview-body -->
@@ -420,9 +491,164 @@ function showPreview(card) {
         descWrap.style.display = 'none';
     }
 
-    // Mở modal
+    // Mở modal, reset về tab Chi tiết và tải bình luận
     modal.classList.add('open');
     document.body.style.overflow = 'hidden'; // chặn scroll trang phía sau
+    switchPreviewTab('details', document.querySelector('.preview-tab')); // Mặc định mở tab Chi tiết
+    loadComments(d.id); // Gọi AJAX tải bình luận
+}
+
+/**
+ * Chuyển đổi giữa tab Chi tiết và tab Bình luận
+ */
+function switchPreviewTab(tabId, btnElement) {
+    // Reset active buttons
+    document.querySelectorAll('.preview-tab').forEach(btn => btn.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+    else document.querySelector('.preview-tabs').firstElementChild.classList.add('active'); // fallback
+
+    // Hide all contents
+    document.querySelectorAll('.preview-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Show target content
+    if (tabId === 'details') {
+        document.getElementById('previewTabDetails').classList.add('active');
+    } else if (tabId === 'comments') {
+        document.getElementById('previewTabComments').classList.add('active');
+    }
+}
+
+/**
+ * Tải bình luận từ API
+ */
+async function loadComments(productId) {
+    const listEl = document.getElementById('previewCommentsList');
+    listEl.innerHTML = '<div style="text-align:center; padding:10px; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải bình luận...</div>';
+    
+    // Lưu productId vào form ẩn để submit
+    const formProductId = document.getElementById('commentProductId');
+    if (formProductId) formProductId.value = productId;
+
+    try {
+        const res = await fetch(`Customer/comment_api.php?product_id=${productId}`);
+        const resultData = await res.json();
+        
+        const data = resultData.comments || [];
+        const canComment = resultData.can_comment || false;
+        
+        // Hiện form comment nếu có quyền
+        const formWrap = document.getElementById('commentFormWrap');
+        const noticeWrap = document.getElementById('commentNoticeWrap');
+        if (formWrap && noticeWrap) {
+            if (canComment) {
+                formWrap.style.display = 'block';
+                noticeWrap.style.display = 'none';
+            } else {
+                formWrap.style.display = 'none';
+                noticeWrap.style.display = 'block';
+                // Nếu notice chưa hiện "Vui lòng đăng nhập", ta thay bằng câu báo cần mua hàng
+                if (!noticeWrap.innerHTML.includes('Đăng nhập')) {
+                    noticeWrap.innerHTML = 'Bạn cần mua sản phẩm này và nhận hàng thành công để có thể đánh giá.';
+                }
+            }
+        }
+        
+        if (data && data.length > 0) {
+            let html = '';
+            data.forEach(cmt => {
+                const date = new Date(cmt.Created_at).toLocaleString('vi-VN');
+                const rating = parseInt(cmt.Rating) || 5;
+                let starsHtml = '';
+                for (let i = 1; i <= 5; i++) {
+                    starsHtml += `<i class="fa-solid fa-star" style="color: ${i <= rating ? '#ffc107' : '#e4e5e9'}; font-size: 12px;"></i>`;
+                }
+                
+                html += `
+                    <div class="comment-item">
+                        <div class="comment-avatar"><i class="fa-solid fa-user"></i></div>
+                        <div class="comment-body">
+                            <div class="comment-author">${cmt.UserName} <span class="comment-time">${date}</span> <span style="margin-left: 8px;">${starsHtml}</span></div>
+                            <div class="comment-content">${cmt.Comment_Detail.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        } else {
+            listEl.innerHTML = '<div style="text-align:center; padding:15px; color:#999; font-style:italic;">Chưa có đánh giá nào. Hãy là người đầu tiên!</div>';
+        }
+    } catch (e) {
+        listEl.innerHTML = `<div style="text-align:center; color:red; padding:10px;">Lỗi tải đánh giá: ${e.message}</div>`;
+    }
+}
+
+/**
+ * Xử lý click sao đánh giá
+ */
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#ratingStars .fa-star')) {
+        const star = e.target.closest('.fa-star');
+        const val = parseInt(star.dataset.val);
+        document.getElementById('commentRating').value = val;
+        
+        const stars = document.querySelectorAll('#ratingStars .fa-star');
+        stars.forEach(s => {
+            if (parseInt(s.dataset.val) <= val) {
+                s.classList.add('active');
+            } else {
+                s.classList.remove('active');
+            }
+        });
+    }
+});
+
+/**
+ * Gửi bình luận qua API
+ */
+async function submitComment(e) {
+    e.preventDefault();
+    const productId = document.getElementById('commentProductId').value;
+    const contentInput = document.getElementById('commentContent');
+    const content = contentInput.value.trim();
+    const ratingInput = document.getElementById('commentRating');
+    const rating = ratingInput ? ratingInput.value : 5;
+    const btn = document.getElementById('btnSubmitComment');
+
+    if (!content) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi...';
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'add');
+        formData.append('product_id', productId);
+        formData.append('content', content);
+        formData.append('rating', rating);
+
+        const res = await fetch('Customer/comment_api.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            contentInput.value = ''; // Xóa nội dung
+            
+            // Reset sao về 5
+            if (ratingInput) ratingInput.value = 5;
+            document.querySelectorAll('#ratingStars .fa-star').forEach(s => s.classList.add('active'));
+            
+            loadComments(productId); // Tải lại danh sách
+        } else {
+            alert("Lỗi: " + (result.message || "Không thể gửi đánh giá"));
+        }
+    } catch (err) {
+        alert("Có lỗi xảy ra khi gửi đánh giá.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Gửi đánh giá';
+    }
 }
 
 /**

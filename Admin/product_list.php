@@ -29,18 +29,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      * Dù xóa ảnh thất bại vẫn tiếp tục xóa record DB.
      */
     if ($action === 'delete' && $pid > 0) {
-        // Lấy đường dẫn ảnh để xóa file
-        $res = $conn->query("SELECT Image_URL FROM products WHERE ID = $pid");
-        if ($res && $row = $res->fetch_assoc()) {
-            $imgPath = '../' . $row['Image_URL'];
-            if (!empty($row['Image_URL']) && file_exists($imgPath)) {
-                unlink($imgPath); // Xóa file vật lý
-            }
-        }
-        if ($conn->query("DELETE FROM products WHERE ID = $pid")) {
-            $success = 'Đã xóa sản phẩm thành công.';
+        // Kiểm tra FK: sản phẩm có trong đơn hàng nào không
+        $fk_check = $conn->query("SELECT COUNT(*) as cnt FROM order_detail WHERE Product_ID = $pid");
+        $fk_row = $fk_check ? $fk_check->fetch_assoc() : null;
+        
+        if ($fk_row && $fk_row['cnt'] > 0) {
+            $error = 'Không thể xóa sản phẩm này vì đã có ' . $fk_row['cnt'] . ' đơn hàng liên quan. Hãy xoá đơn hàng trước.';
         } else {
-            $error = 'Lỗi khi xóa: ' . $conn->error;
+            // Lấy đường dẫn ảnh để xóa file
+            $res = $conn->query("SELECT Image_URL FROM products WHERE ID = $pid");
+            if ($res && $row = $res->fetch_assoc()) {
+                $imgPath = '../' . $row['Image_URL'];
+                if (!empty($row['Image_URL']) && file_exists($imgPath)) {
+                    unlink($imgPath); // Xóa file vật lý
+                }
+            }
+            if ($conn->query("DELETE FROM products WHERE ID = $pid")) {
+                $success = 'Đã xóa sản phẩm thành công.';
+            } else {
+                $error = 'Lỗi khi xóa: ' . $conn->error;
+            }
         }
     }
 
