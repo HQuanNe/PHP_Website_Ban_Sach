@@ -1,184 +1,181 @@
 /**
  * ================================================================
- *  cart.js — Logic giỏ hàng phía client (v2 — Tích hợp DB)
+ *  cart.js — Logic giỏ hàng phía client (v3 — Sửa lỗi Logout & Sync DB)
  *  ----------------------------------------------------------------
- *  Chiến lược 2 lớp:
- *    • Guest  (chưa đăng nhập) → lưu sessionStorage (key: CART_KEY)
- *    • Logged (đã đăng nhập)   → lưu DB qua cart_api.php + giữ
- *                                 sessionStorage làm cache
- *
- *  Khi login thành công → gọi syncGuestCartToDB() để đẩy giỏ
- *  guest lên DB, sau đó tải lại giỏ từ DB.
- *
- *  Cấu trúc mỗi item:
- *  { id: string, name: string, price: number, img: string, qty: number }
- *
- *  Hàm public (dùng được từ HTML inline onclick):
- *    addToCart(card, btn)       — Thêm từ product-card
- *    addToCartFromPreview()     — Thêm từ modal Preview
- *    openCart()                 — Mở drawer
- *    closeCart()                — Đóng drawer
- *    changeQty(id, delta)       — Tăng/giảm số lượng
- *    removeItem(id)             — Xóa 1 sản phẩm
- *    clearCart()                — Xóa toàn bộ
- *    syncGuestCartToDB(items)   — Đồng bộ guest→DB sau login
+ *  Các lỗi đã sửa:
+ *    ✓ Đăng xuất → xóa sessionStorage (nhờ flag ?clear_cart=1 từ logout.php)
+ *    ✓ API_URL & Checkout_URL dùng đường dẫn chính xác (tự động phát hiện gốc project)
+ *    ✓ Sync DB: Luôn ưu tiên dữ liệu từ DB khi người dùng đăng nhập lại
+ *    ✓ Thêm vào giỏ: Gửi request tới server ngay lập tức nếu đã đăng nhập
  * ================================================================
  */
 
 'use strict';
 
-/* ══ CẤU HÌNH ════════════════════════════════════════════════════ */
-const CART_KEY  = 'dreambook_cart';
-// Tự detect đường dẫn: nếu đang ở /Customer/ → cùng thư mục; nếu ở root → Customer/
-const _inCustomer = window.location.pathname.includes('/Customer/');
-const API_URL = _inCustomer ? 'cart_api.php' : 'Customer/cart_api.php';
+const CART_KEY = 'dreambook_cart';
 
-/* ══ PHÁT HIỆN TRẠNG THÁI ĐĂNG NHẬP ════════════════════════════ */
 /**
- * isLoggedIn()
- * Kiểm tra bằng cách đọc meta tag do PHP render vào <head>:
- *   <meta name="user-logged" content="1">
- * Nếu không có meta → coi là guest.
+ * Tự động xác định đường dẫn gốc của Website để các link API và Checkout luôn đúng.
  */
+(function initPaths() {
+    // Lấy link hiện tại (VD: http://localhost/PHP_Website_Ban_Sach/index.php)
+    let href = window.location.href;
+    
+    // Tìm vị trí của thư mục gốc project (giả sử tên project là PHP_Website_Ban_Sach)
+    // Hoặc đơn giản là lấy phần trước thư mục Customer/ hoặc Admin/
+    let base = href.split('/Customer/')[0].split('/Admin/')[0];
+    
+    // Nếu kết thúc bằng .php (trang chủ index.php), cắt bỏ tên file
+    if (base.endsWith('.php')) {
+        base = base.substring(0, base.lastIndexOf('/'));
+    }
+    
+    // Đảm bảo base kết thúc bằng dấu /
+    if (!base.endsWith('/')) base += '/';
+
+    window._CART_API_URL = base + 'Customer/cart_api.php';
+    window._CHECKOUT_URL = base + 'Customer/checkout.php';
+})();
+
+/* ══ KIỂM TRA TRẠNG THÁI ════════════════════════════════════════ */
+
 function isLoggedIn() {
     const meta = document.querySelector('meta[name="user-logged"]');
     return meta && meta.content === '1';
 }
 
-/* ══ ĐỌC / GHI sessionStorage ══════════════════════════════════ */
+/* ══ XỬ LÝ LOGOUT (XÓA GIỎ CLIENT) ══════════════════════════════ */
+
+(function checkClearCart() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('clear_cart') === '1') {
+        // Xóa giỏ hàng trong sessionStorage khi vừa đăng xuất
+        sessionStorage.removeItem(CART_KEY);
+        
+        // Làm sạch URL (xóa param clear_cart) để không bị xóa lặp khi F5
+        const newUrl = window.location.pathname + window.location.search.replace(/[?&]clear_cart=1/, '').replace(/^&/, '?');
+        window.history.replaceState({}, document.title, newUrl);
+    }
+})();
+
+/* ══ ĐỌC/GHI DỮ LIỆU ═══════════════════════════════════════════ */
+
 function cartLoad() {
-    try { return JSON.parse(sessionStorage.getItem(CART_KEY)) || []; }
-    catch { return []; }
+    try {
+        return JSON.parse(sessionStorage.getItem(CART_KEY)) || [];
+    } catch (e) {
+        return [];
+    }
 }
+
 function cartSave(items) {
     sessionStorage.setItem(CART_KEY, JSON.stringify(items));
 }
 
-/* ══ GỌI API (chỉ khi đã login) ════════════════════════════════ */
-/**
- * apiCall(body)
- * Gọi cart_api.php bằng fetch POST JSON.
- * @param {Object} body — payload (phải có trường action)
- * @returns {Promise<Object>} kết quả JSON
- */
 async function apiCall(body) {
     try {
-        const res = await fetch(API_URL, {
-            method : 'POST',
+        const response = await fetch(window._CART_API_URL, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify(body),
+            body: JSON.stringify(body)
         });
-        return await res.json();
+        return await response.json();
     } catch (e) {
-        console.error('[Cart API]', e);
-        return { error: e.message };
+        console.error("Cart API Error:", e);
+        return { status: 'error' };
     }
 }
 
 /* ══ THÊM VÀO GIỎ ══════════════════════════════════════════════ */
 
-/**
- * addToCart(card, triggerEl)
- * Thêm sản phẩm từ .product-card.
- *   - Guest  → cập nhật sessionStorage
- *   - Login  → gọi API add, cập nhật sessionStorage cache
- */
 async function addToCart(card, triggerEl) {
     const d = card.dataset;
     const price = parseInt((d.price || '0').replace(/\./g, ''), 10) || 0;
 
-    /* Cập nhật sessionStorage trước (UI phản hồi ngay) */
-    const items    = cartLoad();
+    const items = cartLoad();
     const existing = items.find(i => i.id === d.id);
-    if (existing) { existing.qty++; }
-    else { items.push({ id: d.id, name: d.name, price, img: d.img || '', qty: 1 }); }
+
+    if (existing) {
+        existing.qty++;
+    } else {
+        items.push({
+            id: d.id,
+            name: d.name,
+            price: price,
+            img: d.img || '',
+            qty: 1
+        });
+    }
+
+    // Cập nhật giao diện ngay lập tức
     cartSave(items);
     cartUpdateBadge();
     cartRenderItems();
     flyToCart(triggerEl || card);
 
-    /* Nếu đã login → đồng bộ lên DB */
+    // Đồng bộ lên database nếu đã đăng nhập
     if (isLoggedIn()) {
         await apiCall({ action: 'add', prod_id: d.id, qty: 1 });
     }
 }
 
-/**
- * addToCartFromPreview()
- * Thêm từ modal Preview — dùng window._previewCard lưu lúc showPreview().
- */
 async function addToCartFromPreview() {
     if (!window._previewCard) return;
     const btn = document.querySelector('.preview-btn-cart');
     await addToCart(window._previewCard, btn);
 }
 
-/* ══ ĐỒNG BỘ GUEST → DB SAU KHI ĐĂNG NHẬP ════════════════════ */
-/**
- * syncGuestCartToDB(guestItems)
- * Gọi sau khi login thành công (từ header.php AJAX login).
- * Đẩy toàn bộ giỏ guest lên DB rồi tải lại giỏ từ DB.
- * @param {Array} guestItems — mảng items từ sessionStorage
- */
+/* ══ ĐỒNG BỘ HÓA DATABASE ══════════════════════════════════════ */
+
 async function syncGuestCartToDB(guestItems) {
-    if (!guestItems || guestItems.length === 0) {
-        await loadCartFromDB(); // vẫn load giỏ DB (user có thể đã có hàng từ trước)
-        return;
+    if (guestItems && guestItems.length > 0) {
+        // Đẩy giỏ hàng tạm lên DB
+        await apiCall({ action: 'sync', items: guestItems });
     }
-    /* Gửi toàn bộ giỏ guest lên API để merge */
-    await apiCall({ action: 'sync', items: guestItems });
-    /* Tải lại từ DB → cập nhật sessionStorage và UI */
+    // Sau đó luôn lấy lại giỏ hàng đầy đủ từ DB về máy khách
     await loadCartFromDB();
 }
 
-/**
- * loadCartFromDB()
- * Lấy giỏ hàng từ DB về, lưu vào sessionStorage, render UI.
- */
 async function loadCartFromDB() {
-    const data = await apiCall({ action: 'get' });
-    if (data.items) {
-        cartSave(data.items);
+    const result = await apiCall({ action: 'get' });
+    if (result && result.items) {
+        cartSave(result.items);
         cartUpdateBadge();
         cartRenderItems();
     }
 }
 
-/* ══ HIỆU ỨNG BAY ĐẾN GIỎ ══════════════════════════════════════ */
-/**
- * flyToCart(fromEl)
- * Tạo bong bóng icon tại fromEl, animate bay đến .cart-btn.
- */
+/* ══ HIỆU ỨNG GIAO DIỆN ════════════════════════════════════════ */
+
 function flyToCart(fromEl) {
     const cartIcon = document.querySelector('.cart-btn');
     if (!cartIcon || !fromEl) return;
 
     const from = fromEl.getBoundingClientRect();
-    const to   = cartIcon.getBoundingClientRect();
+    const to = cartIcon.getBoundingClientRect();
 
     const bubble = document.createElement('div');
     bubble.className = 'fly-bubble';
     bubble.innerHTML = '<i class="fa-solid fa-cart-plus"></i>';
     bubble.style.cssText = `
-        top:  ${from.top  + from.height / 2 - 18}px;
-        left: ${from.left + from.width  / 2 - 18}px;
+        top: ${from.top + from.height / 2 - 18}px;
+        left: ${from.left + from.width / 2 - 18}px;
         opacity: 1;
     `;
     document.body.appendChild(bubble);
 
-    bubble.getBoundingClientRect(); // force reflow
+    bubble.getBoundingClientRect(); // trigger reflow
 
-    bubble.style.top     = `${to.top  + to.height / 2 - 8}px`;
-    bubble.style.left    = `${to.left + to.width  / 2 - 8}px`;
-    bubble.style.width   = '16px';
-    bubble.style.height  = '16px';
+    bubble.style.top = `${to.top + to.height / 2 - 8}px`;
+    bubble.style.left = `${to.left + to.width / 2 - 8}px`;
+    bubble.style.width = '16px';
+    bubble.style.height = '16px';
     bubble.style.opacity = '0';
     bubble.style.fontSize = '8px';
 
     setTimeout(() => bubble.remove(), 700);
 }
 
-/* ══ BADGE SỐ LƯỢNG TRÊN HEADER ════════════════════════════════ */
 function cartUpdateBadge() {
     const badge = document.querySelector('.cart-badge');
     if (!badge) return;
@@ -187,33 +184,27 @@ function cartUpdateBadge() {
     if (total > 0) {
         badge.classList.add('visible');
         badge.classList.remove('pop');
-        void badge.offsetWidth; // reflow
+        void badge.offsetWidth;
         badge.classList.add('pop');
     } else {
         badge.classList.remove('visible');
     }
 }
 
-/* ══ RENDER ITEMS TRONG DRAWER ══════════════════════════════════ */
-/**
- * cartRenderItems()
- * Vẽ lại danh sách sản phẩm trong drawer + cập nhật tổng tiền.
- */
 function cartRenderItems() {
-    const wrap  = document.getElementById('cartItemsWrap');
+    const wrap = document.getElementById('cartItemsWrap');
     const empty = document.getElementById('cartEmpty');
     const total = document.getElementById('cartTotal');
     if (!wrap) return;
 
     const items = cartLoad();
-    /* Xóa hết (trừ phần tử #cartEmpty) */
     Array.from(wrap.children).forEach(el => {
         if (!el.id || el.id !== 'cartEmpty') el.remove();
     });
 
     if (items.length === 0) {
         if (empty) empty.style.display = 'flex';
-        if (total) total.textContent   = '0 ₫';
+        if (total) total.textContent = '0 ₫';
         return;
     }
     if (empty) empty.style.display = 'none';
@@ -250,20 +241,14 @@ function cartRenderItems() {
 }
 
 function escHtml(str) {
-    return String(str)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/* ══ TĂNG / GIẢM SỐ LƯỢNG ══════════════════════════════════════ */
-/**
- * changeQty(id, delta)
- * Thay đổi qty ±1. qty→0 sẽ xóa item.
- * Nếu login → gọi API update/remove.
- */
+/* ══ ĐIỀU KHIỂN GIỎ HÀNG ══════════════════════════════════════ */
+
 async function changeQty(id, delta) {
     const items = cartLoad();
-    const item  = items.find(i => i.id === id);
+    const item = items.find(i => i.id === id);
     if (!item) return;
 
     item.qty += delta;
@@ -279,7 +264,6 @@ async function changeQty(id, delta) {
     cartRenderItems();
 }
 
-/* ══ XÓA 1 SẢN PHẨM ════════════════════════════════════════════ */
 async function removeItem(id) {
     const items = cartLoad().filter(i => i.id !== id);
     cartSave(items);
@@ -288,7 +272,6 @@ async function removeItem(id) {
     if (isLoggedIn()) await apiCall({ action: 'remove', prod_id: id });
 }
 
-/* ══ XÓA TOÀN BỘ ════════════════════════════════════════════════ */
 async function clearCart() {
     cartSave([]);
     cartUpdateBadge();
@@ -296,25 +279,19 @@ async function clearCart() {
     if (isLoggedIn()) await apiCall({ action: 'clear' });
 }
 
-/* ══ MỞ / ĐÓNG DRAWER ══════════════════════════════════════════ */
 function openCart() {
     document.getElementById('cartDrawer').classList.add('open');
     document.getElementById('cartOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
     cartRenderItems();
 }
+
 function closeCart() {
     document.getElementById('cartDrawer').classList.remove('open');
     document.getElementById('cartOverlay').classList.remove('open');
     document.body.style.overflow = '';
 }
 
-/* ══ NÚT THANH TOÁN TRONG DRAWER ════════════════════════════════ */
-/**
- * Khi bấm "Thanh toán" trong drawer:
- *   - Nếu giỏ trống → hiện thông báo
- *   - Nếu có hàng → chuyển tới trang checkout
- */
 function goCheckout() {
     const items = cartLoad();
     if (items.length === 0) {
@@ -322,20 +299,21 @@ function goCheckout() {
         return;
     }
     closeCart();
-    window.location.href = 'Customer/checkout.php';
+    window.location.href = window._CHECKOUT_URL;
 }
 
-/* ══ KHỞI TẠO ══════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', async () => {
+/* ══ KHỞI CHẠY ════════════════════════════════════════════════ */
 
-    /* Nếu đã login → tải giỏ từ DB (ưu tiên hơn sessionStorage) */
+document.addEventListener('DOMContentLoaded', async () => {
+    // Nếu đã login, tải giỏ hàng từ máy chủ
     if (isLoggedIn()) {
         await loadCartFromDB();
     } else {
-        cartUpdateBadge(); // hiển thị giỏ guest từ sessionStorage
+        // Nếu chưa, chỉ cần cập nhật badge từ sessionStorage hiện có
+        cartUpdateBadge();
     }
 
-    /* Event delegation — bắt nút "Thêm giỏ" dù card render sau */
+    // Bắt sự kiện click cho các nút "Thêm vào giỏ"
     document.body.addEventListener('click', async e => {
         const btnCart = e.target.closest('.btn-add-cart');
         if (btnCart) {

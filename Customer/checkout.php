@@ -5,16 +5,12 @@
  * Hiển thị:
  *   - Banner đăng nhập (nếu là guest)
  *   - Form thông tin giao hàng (Họ tên, SĐT, email, địa chỉ)
- *   - Phương thức giao hàng
  *   - Phương thức thanh toán (COD / Chuyển khoản / QR BIDV)
  *   - Ghi chú đơn hàng
  *   - Panel phải: Giỏ hàng + mã khuyến mãi + tóm tắt + nút đặt
  *
  * Khi submit POST → lưu vào bảng orders + order_detail + xóa giỏ DB.
- * Guest → chỉ lưu orders (User_ID = NULL hoặc 0).
- *
- * NOTE: Giỏ hàng được đọc từ sessionStorage phía client.
- *       Khi JS gửi POST, nó serialize giỏ vào hidden input JSON.
+ * Guest → chỉ lưu orders (User_ID = NULL).
  */
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -28,16 +24,7 @@ $error   = '';
 
 /* ═══════════════════════════════════════════════════════════════
    XỬ LÝ POST — LƯU ĐƠN HÀNG
-   ─────────────────────────────────────────────────────────────
-   Nhận:
-     - items_json : JSON mảng [{id, name, price, qty, img}, ...]
-     - fullname, phone, email, address_detail, district, payment
-     - note (tuỳ chọn)
-   Lưu:
-     - orders: 1 record
-     - order_detail: N records (1/sản phẩm)
-     - Xóa giỏ DB nếu đã login
-   ═════════════════════════════════════════════════════════════ */
+   ───────────────────────────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $items_json = $_POST['items_json'] ?? '[]';
     $items      = json_decode($items_json, true);
@@ -57,12 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Tính tổng tiền
         $total_amount = array_sum(array_map(fn($i) => ($i['price'] ?? 0) * ($i['qty'] ?? 1), $items));
-        $shipping_addr = "$fullname | $phone | $addr, $district";
+        $shipping_addr = trim("$addr, $district", ", "); // Giữ địa chỉ đầy đủ
 
         // Ghi vào bảng orders
         $uid_sql = $user_id > 0 ? $user_id : 'NULL';
-        $sql_order = "INSERT INTO orders (User_ID, Total_amount, Shipping_address, Status)
-                      VALUES ($uid_sql, $total_amount, '$shipping_addr', 'Chờ xử lý')";
+        
+        $sql_order = "INSERT INTO orders (User_ID, Full_name, Phone, Payment_method, Note, Total_amount, Shipping_address, Status)
+                      VALUES ($uid_sql, '$fullname', '$phone', '$payment', '$note', $total_amount, '$shipping_addr', 'Chờ xử lý')";
 
         if ($conn->query($sql_order)) {
             $order_id = $conn->insert_id;
@@ -84,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($user_id > 0) {
                     $conn->query("DELETE FROM giohang WHERE ID_User = $user_id");
                 }
-                $success = "Đặt hàng thành công! Mã đơn hàng của bạn là <strong>#$order_id</strong>.";
+                $success = "Đặt hàng thành công!";
             } else {
                 $error = 'Lỗi khi lưu chi tiết đơn hàng: ' . $conn->error;
             }
@@ -435,6 +423,43 @@ if ($is_logged) {
             color: #bbb;
         }
         .ck-empty i { font-size: 56px; display: block; margin-bottom: 14px; }
+        
+        /* ── POPUP THÀNH CÔNG ────────────────────────────────────── */
+        .success-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 9999;
+            display: none; align-items: center; justify-content: center;
+        }
+        .success-modal.active { display: flex; animation: fadeIn 0.3s ease; }
+        .success-modal-content {
+            background: #fff; padding: 40px; border-radius: 20px;
+            text-align: center; max-width: 400px; width: 90%;
+            transform: scale(0.8); opacity: 0;
+            animation: popIn 0.4s 0.1s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .success-icon {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: #4caf50; color: #fff; font-size: 40px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px; position: relative;
+        }
+        .success-icon-circle {
+            position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px;
+            border: 2px solid #4caf50; border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        .success-modal h2 { color: #333; margin-bottom: 10px; font-size: 24px; }
+        .success-modal p { color: #666; margin-bottom: 5px; font-size: 15px; }
+        .success-modal .sub-msg { font-size: 13px; color: #999; margin-bottom: 25px; }
+        .success-modal .btn-ok {
+            background: #4caf50; color: #fff; border: none; padding: 12px 40px;
+            border-radius: 10px; font-size: 16px; font-weight: bold;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .success-modal .btn-ok:hover { background: #43a047; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { to { transform: scale(1); opacity: 1; } }
+        @keyframes pulse { 0% { transform: scale(0.8); opacity: 0.8; } 100% { transform: scale(1.3); opacity: 0; } }
     </style>
 </head>
 <body>
@@ -457,22 +482,23 @@ if ($is_logged) {
     <div class="ck-left">
 
         <?php if ($success): ?>
-            <!-- Đặt hàng thành công → hiện thông báo, ẩn form -->
-            <div class="ck-alert success">
-                <i class="fa-solid fa-circle-check"></i>
-                <span><?= $success ?></span>
+            <!-- Đặt hàng thành công → hiện Popup thay vì alert -->
+            <div id="successPopup" class="success-modal active">
+                <div class="success-modal-content">
+                    <div class="success-icon">
+                        <div class="success-icon-circle"></div>
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <h2>Đặt hàng thành công!</h2>
+                    <p>Mã đơn hàng của bạn là <strong>#<?= $order_id ?? '' ?></strong></p>
+                    <p class="sub-msg">Cảm ơn bạn đã mua hàng tại Dream Book.</p>
+                    <button class="btn-ok" onclick="window.location.href='../index.php'">OK</button>
+                </div>
             </div>
-            <div class="ck-card" style="text-align:center; padding:40px;">
-                <i class="fa-solid fa-truck-fast" style="font-size:48px;color:var(--color-4);margin-bottom:16px;display:block;"></i>
-                <p style="font-size:15px;line-height:1.7;color:var(--color-4);">
-                    Cảm ơn bạn đã đặt hàng tại <strong>Dream Book</strong>!<br>
-                    Chúng tôi sẽ liên hệ xác nhận sớm nhất có thể.
-                </p>
-                <a href="../index.php" style="display:inline-block;margin-top:22px;padding:12px 28px;background:var(--color-4);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;">
-                    <i class="fa-solid fa-house"></i> Về trang chủ
-                </a>
-            </div>
-        <?php else: ?>
+            
+            <!-- Đặt thẻ div ẩn toàn bộ form khi popup hiện -->
+            <div style="display:none;">
+        <?php endif; ?>
 
         <?php if ($error): ?>
             <div class="ck-alert error">
@@ -517,34 +543,16 @@ if ($is_logged) {
                         <input type="text" value="Việt Nam" readonly style="background:#f0f0f0;cursor:default;">
                     </div>
                     <div class="ck-field full">
-                        <label>Địa chỉ, tên đường <span style="color:#e74c3c">*</span></label>
-                        <input type="text" name="address_detail" id="address_detail"
-                               placeholder="Số nhà, tên đường..."
-                               value="<?= htmlspecialchars($user_info['Address'] ?? '') ?>" required>
+                        <label>Tỉnh/TP, Quận/Huyện, Phường/Xã <span style="color:#e74c3c">*</span></label>
+                        <input type="text" name="district" id="district"
+                               placeholder="VD: TP.HCM, Quận 1, Phường Bến Nghé"
+                               value="<?= htmlspecialchars($user_info['Address'] ?? '') ?>" require>
                     </div>
                     <div class="ck-field full">
-                        <label>Tỉnh/TP, Quận/Huyện, Phường/Xã</label>
-                        <input type="text" name="district" id="district"
-                               placeholder="VD: TP.HCM, Quận 1, Phường Bến Nghé">
+                        <label>Địa chỉ, tên đường <span style="color:#e74c3c">*</span></label>
+                        <input type="text" name="address_detail" id="address_detail"
+                               placeholder="Số nhà, tên đường..." required>
                     </div>
-                </div>
-            </div>
-
-            <!-- Phương thức giao hàng -->
-            <div class="ck-card">
-                <div class="ck-card-title">
-                    <i class="fa-solid fa-truck"></i> Phương thức giao hàng
-                </div>
-                <div class="ck-field">
-                    <input type="text" placeholder="Nhập địa chỉ để xem các phương thức giao hàng"
-                           style="background:#f5f5f5;cursor:default;" readonly>
-                </div>
-                <!-- Mặc định: Giao hàng tiêu chuẩn (có thể mở rộng sau) -->
-                <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--background-color);border-radius:10px;">
-                    <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;">
-                        <i class="fa-solid fa-box" style="color:var(--color-4)"></i> Giao hàng tiêu chuẩn (3–5 ngày)
-                    </span>
-                    <span style="font-weight:700;color:var(--color-4);">Miễn phí</span>
                 </div>
             </div>
 
@@ -574,7 +582,7 @@ if ($is_logged) {
                         <input type="radio" name="payment" value="QR_BIDV" onchange="handlePaymentChange(this)">
                         <div class="payment-option-icon"><i class="fa-solid fa-qrcode"></i></div>
                         <div class="payment-option-text">
-                            <div class="payment-option-title">Chuyển khoản qua QR – BIDV</div>
+                            <div class="payment-option-title">Chuyển khoản qua QR</div>
                             <div class="payment-option-sub">Quét mã QR thanh toán ngay</div>
                         </div>
                     </label>
@@ -591,32 +599,21 @@ if ($is_logged) {
                 </div>
             </div>
 
-            <!-- Hoá đơn điện tử & ghi chú -->
+            <!-- Ghi chú đơn hàng -->
             <div class="ck-card">
-                <div class="ck-card-title" style="justify-content:space-between;cursor:pointer;" onclick="toggleInvoice()">
-                    <span><i class="fa-solid fa-file-invoice"></i> Hoá đơn điện tử</span>
-                    <span style="font-size:13px;color:var(--color-4);font-weight:500;" id="invoiceToggleText">Yêu cầu xuất <i class="fa-solid fa-chevron-right"></i></span>
-                </div>
-                <div id="invoiceSection" style="display:none;margin-top:12px;">
-                    <div class="ck-form-grid">
-                        <div class="ck-field full">
-                            <label>Tên công ty / cá nhân</label>
-                            <input type="text" name="invoice_name" placeholder="Tên trên hoá đơn">
-                        </div>
-                        <div class="ck-field full">
-                            <label>Mã số thuế</label>
-                            <input type="text" name="invoice_tax" placeholder="Nhập mã số thuế">
-                        </div>
-                    </div>
+                <div class="ck-card-title">
+                    <i class="fa-solid fa-note-sticky"></i> Ghi chú đơn hàng
                 </div>
                 <div class="ck-field" style="margin-top:14px;">
-                    <label>Ghi chú đơn hàng</label>
                     <textarea name="note" placeholder="Ghi chú thêm về đơn hàng (không bắt buộc)..."></textarea>
                 </div>
             </div>
         </form>
 
+        <?php if ($success): ?>
+            </div> <!-- Đóng thẻ div ẩn form -->
         <?php endif; ?>
+
     </div><!-- /.ck-left -->
 
     <!-- ── CỘT PHẢI: Tóm tắt đơn hàng ────────────────────────── -->
@@ -690,8 +687,7 @@ if ($is_logged) {
  *  B. updateSummary()    — Tính và hiển thị tổng tiền
  *  C. submitOrder()      — Điền JSON vào hidden input, submit form
  *  D. handlePaymentChange() — Hiện/ẩn QR section
- *  E. toggleInvoice()    — Mở/đóng section hoá đơn
- *  F. applyCoupon()      — Áp dụng mã KM (mock)
+ *  E. applyCoupon()      — Áp dụng mã KM (mock)
  * ================================================================
  */
 
@@ -773,18 +769,7 @@ function handlePaymentChange(radio) {
     qr.style.display = radio.value === 'QR_BIDV' ? 'block' : 'none';
 }
 
-/* ── E. Toggle section hoá đơn ────────────────────────────── */
-function toggleInvoice() {
-    const sec  = document.getElementById('invoiceSection');
-    const text = document.getElementById('invoiceToggleText');
-    const open = sec.style.display === 'none';
-    sec.style.display  = open ? 'grid' : 'none';
-    text.innerHTML = open
-        ? 'Đóng lại <i class="fa-solid fa-chevron-down"></i>'
-        : 'Yêu cầu xuất <i class="fa-solid fa-chevron-right"></i>';
-}
-
-/* ── F. Mã khuyến mãi (mock — mở rộng sau) ──────────────── */
+/* ── E. Mã khuyến mãi (mock — mở rộng sau) ──────────────── */
 function applyCoupon() {
     const code = document.getElementById('couponInput').value.trim().toUpperCase();
     const msg  = document.getElementById('couponMsg');
@@ -793,23 +778,24 @@ function applyCoupon() {
         _discount = 20000;
         msg.style.color = '#2e7d32';
         msg.textContent = '✓ Áp dụng mã thành công! Giảm 20.000 ₫';
+        msg.style.display = 'block';
     } else if (code === '') {
         msg.textContent = '';
+        msg.style.display = 'none';
     } else {
         _discount = 0;
         msg.style.color = '#e74c3c';
-        msg.textContent = 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn.';
+        msg.textContent = 'Mã khuyến mãi không hợp lệ!';
+        msg.style.display = 'block';
     }
-    msg.style.display = 'block';
-    // Tính lại tổng
-    const items = cartLoad();
-    const sub   = items.reduce((s, i) => s + i.price * i.qty, 0);
-    updateSummary(sub);
+    renderOrderItems();
 }
 
-/* ── Khởi tạo trang ─────────────────────────────────────── */
+/* ── KHỞI TẠO ────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+    // Nếu vừa reload trang sau khi login, tải lại giỏ từ sessionStorage
     renderOrderItems();
+
     <?php if ($success): ?>
     // Đặt hàng thành công → xóa giỏ phía client
     sessionStorage.removeItem('dreambook_cart');

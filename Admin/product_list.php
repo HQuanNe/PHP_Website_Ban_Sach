@@ -12,12 +12,7 @@
  *   - action=delete + id → DELETE sản phẩm (kèm xóa file ảnh nếu có)
  */
 
-if (session_status() === PHP_SESSION_NONE) session_start();
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../index.php");
-    exit;
-}
-include '../Connect/connect.php';
+
 
 $success = '';
 $error   = '';
@@ -168,14 +163,7 @@ if ($products_raw) {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Danh sách sản phẩm - Dream Book Admin</title>
-    <link rel="stylesheet" href="../CSS/admin.css">
-    <link rel="stylesheet" href="../Resource/FontAwesome/fontawesome-free-7.2.0-web/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
         /* ── Bảng sản phẩm theo danh mục ── */
 
@@ -519,84 +507,7 @@ if ($products_raw) {
         }
         .btn-confirm-yes:hover { background: #c0392b; }
     </style>
-</head>
-<body class="admin-body">
 
-<div class="admin-wrapper">
-    <!-- ══ SIDEBAR ══════════════════════════════════════════════════════ -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-brand">
-            <i class="fa-solid fa-book-open-reader"></i>
-            <span>Dream Book</span>
-        </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section-title">QUẢN LÝ</div>
-            <ul>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-gauge-high"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="active">
-                    <a href="#" class="nav-item active">
-                        <i class="fa-solid fa-box-open"></i>
-                        <span>Sản phẩm</span>
-                    </a>
-                    <ul class="nav-submenu">
-                        <li><a href="add_product.php"><i class="fa-solid fa-plus"></i> Thêm sản phẩm</a></li>
-                        <li><a href="product_list.php" class="active"><i class="fa-solid fa-list"></i> Danh sách</a></li>
-                    </ul>
-                </li>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-users"></i>
-                        <span>Người dùng</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-cart-shopping"></i>
-                        <span>Đơn hàng</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="../logout.php" class="sidebar-logout">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Đăng xuất</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- ══ NỘI DUNG CHÍNH ════════════════════════════════════════════════ -->
-    <main class="admin-main">
-        <!-- Topbar -->
-        <header class="admin-topbar">
-            <div class="topbar-left">
-                <h1 class="page-title"><i class="fa-solid fa-list"></i> Danh sách sản phẩm</h1>
-                <nav class="breadcrumb">
-                    <span>Dashboard</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                    <span>Sản phẩm</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                    <span class="active">Danh sách</span>
-                </nav>
-            </div>
-            <div class="topbar-right">
-                <a href="add_product.php" class="btn-save-edit" style="text-decoration:none;">
-                    <i class="fa-solid fa-plus"></i> Thêm sản phẩm
-                </a>
-                <div class="admin-user-info">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span><?= htmlspecialchars($_SESSION['username']) ?></span>
-                </div>
-            </div>
-        </header>
-
-        <!-- Nội dung -->
-        <div class="admin-content">
             <?php if ($success): ?>
                 <div class="alert alert-success">
                     <i class="fa-solid fa-circle-check"></i> <?= $success ?>
@@ -700,9 +611,6 @@ if ($products_raw) {
                     Chưa có sản phẩm nào trong hệ thống.
                 </div>
             <?php endif; ?>
-        </div><!-- /.admin-content -->
-    </main>
-</div><!-- /.admin-wrapper -->
 
 
 <!-- ══ MODAL CHỈNH SỬA SẢN PHẨM ════════════════════════════════════════
@@ -955,5 +863,4 @@ function previewNewImg(input) {
 }
 </script>
 
-</body>
-</html>
+

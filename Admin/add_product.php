@@ -1,9 +1,4 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) session_start();
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../index.php");
-    exit;
-}
 include '../Connect/connect.php';
 
 $success = '';
@@ -77,89 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Lấy danh sách thể loại
 $categories = $conn->query("SELECT * FROM category ORDER BY ID");
 ?>
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Thêm sản phẩm - Dream Book Admin</title>
-    <link rel="stylesheet" href="../CSS/admin.css">
-    <link rel="stylesheet" href="../Resource/FontAwesome/fontawesome-free-7.2.0-web/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-</head>
-<body class="admin-body">
 
-<div class="admin-wrapper">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-brand">
-            <i class="fa-solid fa-book-open-reader"></i>
-            <span>Dream Book</span>
-        </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section-title">QUẢN LÝ</div>
-            <ul>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-gauge-high"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="active">
-                    <a href="#" class="nav-item active">
-                        <i class="fa-solid fa-box-open"></i>
-                        <span>Sản phẩm</span>
-                    </a>
-                    <ul class="nav-submenu">
-                        <li><a href="add_product.php" class="active"><i class="fa-solid fa-plus"></i> Thêm sản phẩm</a></li>
-                        <li><a href="product_list.php"><i class="fa-solid fa-list"></i> Danh sách</a></li>
-                    </ul>
-                </li>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-users"></i>
-                        <span>Người dùng</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-item">
-                        <i class="fa-solid fa-cart-shopping"></i>
-                        <span>Đơn hàng</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="../logout.php" class="sidebar-logout">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Đăng xuất</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="admin-main">
-        <!-- Topbar -->
-        <header class="admin-topbar">
-            <div class="topbar-left">
-                <h1 class="page-title"><i class="fa-solid fa-plus"></i> Thêm sản phẩm mới</h1>
-                <nav class="breadcrumb">
-                    <span>Dashboard</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                    <span>Sản phẩm</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                    <span class="active">Thêm mới</span>
-                </nav>
-            </div>
-            <div class="topbar-right">
-                <div class="admin-user-info">
-                    <i class="fa-solid fa-user-shield"></i>
-                    <span><?= htmlspecialchars($_SESSION['username']) ?></span>
-                </div>
-            </div>
-        </header>
-
-        <!-- Form Container -->
-        <div class="admin-content">
             <?php if ($success): ?>
                 <div class="alert alert-success">
                     <i class="fa-solid fa-circle-check"></i> <?= $success ?>
@@ -305,5 +218,3 @@ uploadArea.addEventListener('drop', (e) => {
     previewImage(fileInput);
 });
 </script>
-</body>
-</html>

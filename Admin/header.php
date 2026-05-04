@@ -19,6 +19,8 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
     <link rel="stylesheet" href="CSS/default.css">
     <link rel="stylesheet" href="CSS/cart.css">
     <link rel="stylesheet" href="Resource/FontAwesome/fontawesome-free-7.2.0-web/css/all.min.css">
+    <!-- Load Cart JS sớm để các script inline có thể gọi hàm sync -->
+    <script src="JS/cart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -43,7 +45,7 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                             <i class="fa-solid fa-user-check" style="margin-right: 5px;"></i>Xin chào, <?= htmlspecialchars($_SESSION['username']) ?>
                         </span>
                         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-                            <button class="btn-modern" onclick="window.location.href='Admin/add_product.php'">
+                            <button class="btn-modern" onclick="window.location.href='Admin/admin_dashboard.php'">
                                 <i class="fa-solid fa-user-shield" style="margin-right: 5px;"></i>Quản trị
                             </button>
                         <?php endif; ?>
@@ -296,7 +298,5 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
             }
         });
     </script>
-    <!-- Cart JS -->
-    <script src="JS/cart.js"></script>
 </body>
 </html>
