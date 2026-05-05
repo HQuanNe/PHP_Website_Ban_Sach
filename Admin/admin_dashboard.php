@@ -43,6 +43,10 @@ if ($page === 'add_product') {
     $pageTitle = 'Quản lý Đơn hàng';
     $icon = 'fa-cart-shopping';
     $breadcrumb = '<span>Đơn hàng</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh sách</span>';
+} elseif ($page === 'user_list') {
+    $pageTitle = 'Quản lý Người dùng';
+    $icon = 'fa-users';
+    $breadcrumb = '<span>Người dùng</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh sách</span>';
 }
 ?>
 <!DOCTYPE html>
@@ -122,7 +126,7 @@ if ($page === 'add_product') {
                     </ul>
                 </li>
                 <li>
-                    <a href="#" class="nav-item">
+                    <a href="admin_dashboard.php?page=user_list" class="nav-item <?= $page == 'user_list' ? 'active' : '' ?>">
                         <i class="fa-solid fa-users"></i>
                         <span>Người dùng</span>
                     </a>
@@ -168,7 +172,7 @@ if ($page === 'add_product') {
         <!-- Nội dung động -->
         <div class="admin-content">
             <?php 
-                $allowed_pages = ['add_product', 'product_list', 'order_list'];
+                $allowed_pages = ['add_product', 'product_list', 'order_list', 'user_list'];
                 if (in_array($page, $allowed_pages)) {
                     include $page . '.php';
                 } else {

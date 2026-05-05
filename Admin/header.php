@@ -30,9 +30,10 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
             </div>
             <div class="container-header-mid">
                 <div class="header-mid-logo"><a href="#"><img src="Resource/Image/Logo/logo.jpg" alt=""></a></div>
-                <div class="header-mid-search_bar">
-                    <input type="text" name="header-mid-search" id="" placeholder="Tìm kiếm...">
-                    <button><i style="color: #fff;" class="fa-solid fa-magnifying-glass"></i></button>
+                <div class="header-mid-search_bar" style="position:relative;">
+                    <input type="text" name="header-mid-search" id="searchInput" placeholder="Tìm kiếm sách, tác giả..." autocomplete="off">
+                    <button onclick="doSearch()"><i style="color: #fff;" class="fa-solid fa-magnifying-glass"></i></button>
+                    <div id="searchDropdown" class="search-dropdown" style="display:none;"></div>
                 </div>
                 <div class="cart-btn" onclick="openCart()" title="Giỏ hàng">
                     <i style="color: #7a6f63; font-size:22px;" class="fa-solid fa-cart-shopping"></i>
@@ -286,7 +287,7 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    registerSuccessDOM.textContent = result.message;
+                registerSuccessDOM.textContent = result.message;
                     frmRegisterDOM.reset();
                     setTimeout(() => openModal(true), 1500); // Mở popup đăng nhập sau 1.5s
                 } else {
@@ -297,6 +298,111 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                 registerErrorDOM.textContent = 'Đã xảy ra lỗi khi kết nối tới máy chủ.';
             }
         });
+    </script>
+
+    <style>
+    .search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        z-index: 9999;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .search-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: background 0.15s;
+        border-bottom: 1px solid #f0ece6;
+    }
+    .search-item:hover { background: #f9f5ef; }
+    .search-item:last-child { border-bottom: none; }
+    .search-item img {
+        width: 40px;
+        height: 52px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: #f0ece6;
+    }
+    .search-item .no-img-sm {
+        width: 40px; height: 52px;
+        display: flex; align-items: center; justify-content: center;
+        background: #f0ece6; border-radius: 4px; color: #bbb; font-size: 18px;
+    }
+    .search-item-info { flex: 1; }
+    .search-item-info .si-name { font-size: 14px; font-weight: 600; color: #333; }
+    .search-item-info .si-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .search-item-info .si-price { font-size: 13px; font-weight: 700; color: #d9534f; margin-top: 2px; }
+    .search-no-result { padding: 20px; text-align: center; color: #999; font-size: 14px; }
+    </style>
+
+    <script>
+    (function() {
+        const input = document.getElementById('searchInput');
+        const dropdown = document.getElementById('searchDropdown');
+        if (!input || !dropdown) return;
+
+        let debounceTimer = null;
+
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const q = this.value.trim();
+            if (q.length < 1) { dropdown.style.display = 'none'; return; }
+
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch('Customer/search_api.php?q=' + encodeURIComponent(q));
+                    const data = await res.json();
+                    if (data.length === 0) {
+                        dropdown.innerHTML = '<div class="search-no-result"><i class="fa-solid fa-book-open"></i> Không tìm thấy sách nào.</div>';
+                    } else {
+                        let html = '';
+                        data.forEach(item => {
+                            const imgHtml = item.image
+                                ? `<img src="${item.image}" alt="">`
+                                : '<div class="no-img-sm"><i class="fa-solid fa-book"></i></div>';
+                            html += `<div class="search-item" onclick="window.location.href='index.php?cat=&search_click=${item.id}'">
+                                ${imgHtml}
+                                <div class="search-item-info">
+                                    <div class="si-name">${item.name}</div>
+                                    <div class="si-meta">${item.author} · ${item.cat}</div>
+                                    <div class="si-price">${item.price}</div>
+                                </div>
+                            </div>`;
+                        });
+                        dropdown.innerHTML = html;
+                    }
+                    dropdown.style.display = 'block';
+                } catch(e) {
+                    dropdown.style.display = 'none';
+                }
+            }, 250);
+        });
+
+        // Ẩn dropdown khi click ra ngoài
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Enter → search
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+        });
+    })();
+
+    function doSearch() {
+        const q = document.getElementById('searchInput').value.trim();
+        if (q) window.location.href = 'index.php?search=' + encodeURIComponent(q);
+    }
     </script>
 </body>
 </html>
