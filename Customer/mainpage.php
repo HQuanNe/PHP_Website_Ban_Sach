@@ -61,6 +61,63 @@ if ($filter_cat_id > 0) {
 <?php /* ── LOAD STYLESHEET RIÊNG CHO MAINPAGE ── */ ?>
 <link rel="stylesheet" href="CSS/mainpage.css">
 
+<?php
+/* ── QUERY VOUCHER BANNER ── */
+$banner_vouchers = $conn->query("SELECT * FROM vouchers WHERE Is_banner = 1 AND Status = 'active' AND Start_date <= CURDATE() AND End_date >= CURDATE() AND (Quantity < 0 OR Used < Quantity) ORDER BY Created_at DESC LIMIT 4");
+$has_banners = $banner_vouchers && $banner_vouchers->num_rows > 0;
+?>
+
+<?php if ($has_banners): ?>
+<div class="voucher-banner-section">
+    <div class="voucher-banner-header">
+        <i class="fa-solid fa-gift"></i>
+        <span>NHẬN VOUCHER NGAY</span>
+    </div>
+    <div class="voucher-banner-grid">
+        <?php while ($bv = $banner_vouchers->fetch_assoc()):
+            $is_percent = $bv['Type'] === 'percent';
+            $value_label = $is_percent ? $bv['Value'].'%' : number_format($bv['Value'],0,',','.').'₫';
+            $remaining = $bv['Quantity'] < 0 ? null : ($bv['Quantity'] - $bv['Used']);
+            $end_fmt = date('d/m/Y', strtotime($bv['End_date']));
+        ?>
+        <div class="voucher-card <?= $is_percent ? 'vc-gradient-warm' : 'vc-gradient-cool' ?>">
+            <div class="voucher-card-left">
+                <div class="voucher-card-value"><?= $value_label ?></div>
+                <div class="voucher-card-type"><?= $is_percent ? 'GIẢM' : 'GIẢM NGAY' ?></div>
+            </div>
+            <div class="voucher-card-right">
+                <div class="voucher-card-title"><?= htmlspecialchars($bv['Banner_title'] ?? 'Ưu đãi đặc biệt') ?></div>
+                <div class="voucher-card-desc"><?= htmlspecialchars($bv['Banner_subtitle'] ?? '') ?></div>
+                <?php if ($bv['Min_order'] > 0): ?>
+                    <div class="voucher-card-min">Đơn tối thiểu <?= number_format($bv['Min_order'],0,',','.') ?>₫</div>
+                <?php endif; ?>
+                <div class="voucher-card-footer">
+                    <span class="voucher-card-exp"><i class="fa-regular fa-clock"></i> HSD: <?= $end_fmt ?></span>
+                    <?php if ($remaining !== null): ?>
+                        <span class="voucher-card-remain">Còn <?= $remaining ?> lượt</span>
+                    <?php endif; ?>
+                </div>
+                <div class="voucher-card-code-row">
+                    <span class="voucher-card-code" id="vc_<?= $bv['ID'] ?>"><?= htmlspecialchars($bv['Code']) ?></span>
+                    <button class="voucher-copy-btn" onclick="copyVoucher('vc_<?= $bv['ID'] ?>', this)"><i class="fa-regular fa-copy"></i> Sao chép</button>
+                </div>
+            </div>
+        </div>
+        <?php endwhile; ?>
+    </div>
+</div>
+<script>
+function copyVoucher(id, btn) {
+    const code = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Đã sao chép!';
+        btn.style.background = '#2e7d32';
+        setTimeout(() => { btn.innerHTML = '<i class="fa-regular fa-copy"></i> Sao chép'; btn.style.background = ''; }, 2000);
+    });
+}
+</script>
+<?php endif; ?>
+
 <?php /* ── BỐ CỤC CHÍNH: 2 CỘT TRÁI / PHẢI ── */ ?>
 <div class="container-body">
 

@@ -6,7 +6,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 include '../Connect/connect.php';
 
-$page = $_GET['page'] ?? 'product_list';
+$page = $_GET['page'] ?? 'dashboard_stats';
 
 if ($page === 'order_list' && isset($_GET['ajax_details'])) {
     $order_id = intval($_GET['ajax_details']);
@@ -31,7 +31,11 @@ $pageTitle = 'Dashboard';
 $breadcrumb = '<span class="active">Trang chủ</span>';
 $icon = 'fa-gauge-high';
 
-if ($page === 'add_product') {
+if ($page === 'dashboard_stats') {
+    $pageTitle = 'Thống kê tổng quan';
+    $icon = 'fa-chart-line';
+    $breadcrumb = '<span class="active">Thống kê</span>';
+} elseif ($page === 'add_product') {
     $pageTitle = 'Thêm sản phẩm mới';
     $icon = 'fa-plus';
     $breadcrumb = '<span>Sản phẩm</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Thêm mới</span>';
@@ -39,6 +43,10 @@ if ($page === 'add_product') {
     $pageTitle = 'Danh sách sản phẩm';
     $icon = 'fa-list';
     $breadcrumb = '<span>Sản phẩm</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh sách</span>';
+} elseif ($page === 'category_list') {
+    $pageTitle = 'Quản lý Danh mục';
+    $icon = 'fa-layer-group';
+    $breadcrumb = '<span>Sản phẩm</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh mục</span>';
 } elseif ($page === 'order_list') {
     $pageTitle = 'Quản lý Đơn hàng';
     $icon = 'fa-cart-shopping';
@@ -47,6 +55,10 @@ if ($page === 'add_product') {
     $pageTitle = 'Quản lý Người dùng';
     $icon = 'fa-users';
     $breadcrumb = '<span>Người dùng</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh sách</span>';
+} elseif ($page === 'voucher_list') {
+    $pageTitle = 'Quản lý Voucher';
+    $icon = 'fa-ticket';
+    $breadcrumb = '<span>Voucher</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Danh sách</span>';
 }
 ?>
 <!DOCTYPE html>
@@ -115,14 +127,21 @@ if ($page === 'add_product') {
         <nav class="sidebar-nav">
             <div class="nav-section-title">QUẢN LÝ</div>
             <ul>
-                <li class="<?= in_array($page, ['add_product', 'product_list']) ? 'active' : '' ?>">
-                    <a href="#" class="nav-item <?= in_array($page, ['add_product', 'product_list']) ? 'active' : '' ?>">
+                <li>
+                    <a href="admin_dashboard.php?page=dashboard_stats" class="nav-item <?= $page == 'dashboard_stats' ? 'active' : '' ?>">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Thống kê</span>
+                    </a>
+                </li>
+                <li class="<?= in_array($page, ['add_product', 'product_list', 'category_list']) ? 'active' : '' ?>">
+                    <a href="#" class="nav-item <?= in_array($page, ['add_product', 'product_list', 'category_list']) ? 'active' : '' ?>">
                         <i class="fa-solid fa-box-open"></i>
                         <span>Sản phẩm</span>
                     </a>
-                    <ul class="nav-submenu" style="<?= in_array($page, ['add_product', 'product_list']) ? 'display:block;' : '' ?>">
+                    <ul class="nav-submenu" style="<?= in_array($page, ['add_product', 'product_list', 'category_list']) ? 'display:block;' : '' ?>">
                         <li><a href="admin_dashboard.php?page=add_product" class="<?= $page == 'add_product' ? 'active' : '' ?>"><i class="fa-solid fa-plus"></i> Thêm sản phẩm</a></li>
                         <li><a href="admin_dashboard.php?page=product_list" class="<?= $page == 'product_list' ? 'active' : '' ?>"><i class="fa-solid fa-list"></i> Danh sách</a></li>
+                        <li><a href="admin_dashboard.php?page=category_list" class="<?= $page == 'category_list' ? 'active' : '' ?>"><i class="fa-solid fa-layer-group"></i> Danh mục</a></li>
                     </ul>
                 </li>
                 <li>
@@ -135,6 +154,12 @@ if ($page === 'add_product') {
                     <a href="admin_dashboard.php?page=order_list" class="nav-item <?= $page == 'order_list' ? 'active' : '' ?>">
                         <i class="fa-solid fa-cart-shopping"></i>
                         <span>Đơn hàng</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="admin_dashboard.php?page=voucher_list" class="nav-item <?= $page == 'voucher_list' ? 'active' : '' ?>">
+                        <i class="fa-solid fa-ticket"></i>
+                        <span>Voucher</span>
                     </a>
                 </li>
             </ul>
@@ -172,7 +197,7 @@ if ($page === 'add_product') {
         <!-- Nội dung động -->
         <div class="admin-content">
             <?php 
-                $allowed_pages = ['add_product', 'product_list', 'order_list', 'user_list'];
+                $allowed_pages = ['dashboard_stats', 'add_product', 'product_list', 'category_list', 'order_list', 'user_list', 'voucher_list'];
                 if (in_array($page, $allowed_pages)) {
                     include $page . '.php';
                 } else {

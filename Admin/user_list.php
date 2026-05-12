@@ -5,7 +5,12 @@
  * - Click dòng → modal sửa thông tin
  * - Form đổi mật khẩu riêng
  * - Thêm / Xoá user (kiểm tra FK)
+ * Phải được include từ admin_dashboard.php (cần $conn).
  */
+if (!isset($conn)) {
+    header('Location: admin_dashboard.php?page=user_list');
+    exit;
+}
 
 $success = '';
 $error   = '';

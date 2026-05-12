@@ -84,10 +84,10 @@ $header_categories = $conn->query("SELECT * FROM category ORDER BY ID");
                 <div class="header-bottom-navbar">
                     <ul>
                         <li><a href="index.php?layout=mainpage">Trang chủ</a></li>
-                        <li><a href="#">Giới thiệu</a></li>
+                        <li><a href="index.php?layout=about">Giới thiệu</a></li>
                         <li><a href="#">Tin tức</a></li>
-                        <li><a href="#">Tra cứu đơn</a></li>
-                        <li><a href="#">Feedback</a></li>
+                        <li><a href="index.php?layout=order_tracking">Tra cứu đơn</a></li>
+                        <li><a href="index.php?layout=feedback">Feedback</a></li>
                     </ul>
                 </div>
             </div>

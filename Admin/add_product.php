@@ -1,5 +1,12 @@
 <?php
-include '../Connect/connect.php';
+/**
+ * add_product.php — Thêm sản phẩm mới (Admin)
+ * Phải được include từ admin_dashboard.php.
+ */
+if (!isset($conn)) {
+    header('Location: admin_dashboard.php?page=add_product');
+    exit;
+}
 
 $success = '';
 $error = '';

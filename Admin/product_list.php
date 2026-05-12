@@ -10,9 +10,12 @@
  * Luồng xử lý POST:
  *   - action=edit  + id → UPDATE bảng products
  *   - action=delete + id → DELETE sản phẩm (kèm xóa file ảnh nếu có)
+ * Phải được include từ admin_dashboard.php.
  */
-
-
+if (!isset($conn)) {
+    header('Location: admin_dashboard.php?page=product_list');
+    exit;
+}
 
 $success = '';
 $error   = '';

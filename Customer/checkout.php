@@ -44,13 +44,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Tính tổng tiền
         $total_amount = array_sum(array_map(fn($i) => ($i['price'] ?? 0) * ($i['qty'] ?? 1), $items));
-        $shipping_addr = trim("$addr, $district", ", "); // Giữ địa chỉ đầy đủ
+        $shipping_addr = trim("$addr, $district", ", ");
+
+        // Xử lý voucher
+        $voucher_code = strtoupper(trim($_POST['voucher_code'] ?? ''));
+        $discount_amount = 0;
+        $vc_code_sql = 'NULL';
+        if (!empty($voucher_code)) {
+            $vc_esc = $conn->real_escape_string($voucher_code);
+            $vc_res = $conn->query("SELECT * FROM vouchers WHERE Code='$vc_esc' AND Status='active' AND Start_date <= CURDATE() AND End_date >= CURDATE() AND (Quantity < 0 OR Used < Quantity)");
+            if ($vc_res && $vc_res->num_rows > 0) {
+                $vc = $vc_res->fetch_assoc();
+                if ($total_amount >= $vc['Min_order']) {
+                    if ($vc['Type'] === 'percent') {
+                        $discount_amount = $total_amount * ($vc['Value'] / 100);
+                        if ($vc['Max_discount'] !== null && $discount_amount > $vc['Max_discount'])
+                            $discount_amount = $vc['Max_discount'];
+                    } else {
+                        $discount_amount = $vc['Value'];
+                    }
+                    $discount_amount = min($discount_amount, $total_amount);
+                    $vc_code_sql = "'$vc_esc'";
+                    // Tăng Used count
+                    $conn->query("UPDATE vouchers SET Used = Used + 1 WHERE ID = {$vc['ID']}");
+                }
+            }
+        }
+
+        $final_total = $total_amount - $discount_amount;
 
         // Ghi vào bảng orders
         $uid_sql = $user_id > 0 ? $user_id : 'NULL';
         
-        $sql_order = "INSERT INTO orders (User_ID, Full_name, Phone, Payment_method, Note, Total_amount, Shipping_address, Status)
-                      VALUES ($uid_sql, '$fullname', '$phone', '$payment', '$note', $total_amount, '$shipping_addr', 'Chờ xử lý')";
+        $sql_order = "INSERT INTO orders (User_ID, Full_name, Phone, Payment_method, Note, Total_amount, Discount_amount, Voucher_code, Shipping_address, Status)
+                      VALUES ($uid_sql, '$fullname', '$phone', '$payment', '$note', $final_total, $discount_amount, $vc_code_sql, '$shipping_addr', 'Chờ xử lý')";
 
         if ($conn->query($sql_order)) {
             $order_id = $conn->insert_id;
@@ -65,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql_det = "INSERT INTO order_detail (Order_ID, Product_ID, Quantity, Price_at_order)
                             VALUES ($order_id, $prod_id, $qty, $price)";
                 if (!$conn->query($sql_det)) { $ok = false; break; }
+                // Giảm số lượng tồn kho
+                $conn->query("UPDATE products SET Quantity = Quantity - $qty WHERE ID = $prod_id AND Quantity >= $qty");
             }
 
             if ($ok) {
@@ -518,6 +547,7 @@ if ($is_logged) {
         <form method="POST" id="checkoutForm">
             <!-- Hidden: giỏ hàng JSON từ JS sẽ điền vào đây -->
             <input type="hidden" name="items_json" id="itemsJsonInput">
+            <input type="hidden" name="voucher_code" id="voucherCodeInput">
 
             <div class="ck-card">
                 <div class="ck-card-title">
@@ -760,6 +790,8 @@ function submitOrder() {
     }
     // Điền JSON giỏ vào hidden input
     document.getElementById('itemsJsonInput').value = JSON.stringify(items);
+    // Gửi kèm voucher code
+    document.getElementById('voucherCodeInput').value = typeof _voucherCode !== 'undefined' ? _voucherCode : '';
     document.getElementById('checkoutForm').submit();
 }
 
@@ -769,23 +801,34 @@ function handlePaymentChange(radio) {
     qr.style.display = radio.value === 'QR_BIDV' ? 'block' : 'none';
 }
 
-/* ── E. Mã khuyến mãi (mock — mở rộng sau) ──────────────── */
-function applyCoupon() {
+/* ── E. Áp dụng voucher (gọi API thật) ────────────────────── */
+let _voucherCode = '';
+async function applyCoupon() {
     const code = document.getElementById('couponInput').value.trim().toUpperCase();
     const msg  = document.getElementById('couponMsg');
-    // Mock: mã DREAMBOOK → giảm 20.000 đ
-    if (code === 'DREAMBOOK') {
-        _discount = 20000;
-        msg.style.color = '#2e7d32';
-        msg.textContent = '✓ Áp dụng mã thành công! Giảm 20.000 ₫';
+    if (!code) { msg.textContent = ''; msg.style.display = 'none'; _discount = 0; _voucherCode = ''; renderOrderItems(); return; }
+
+    const items = cartLoad();
+    const subtotal = items.reduce((s, i) => s + (i.price || 0) * (i.qty || 1), 0);
+
+    try {
+        const res = await fetch('../Customer/voucher_api.php?code=' + encodeURIComponent(code) + '&subtotal=' + subtotal);
+        const data = await res.json();
+        if (data.valid) {
+            _discount = data.discount_amount;
+            _voucherCode = code;
+            msg.style.color = '#2e7d32';
+        } else {
+            _discount = 0;
+            _voucherCode = '';
+            msg.style.color = '#e74c3c';
+        }
+        msg.textContent = data.message;
         msg.style.display = 'block';
-    } else if (code === '') {
-        msg.textContent = '';
-        msg.style.display = 'none';
-    } else {
-        _discount = 0;
+    } catch(e) {
+        _discount = 0; _voucherCode = '';
         msg.style.color = '#e74c3c';
-        msg.textContent = 'Mã khuyến mãi không hợp lệ!';
+        msg.textContent = 'Lỗi kết nối, vui lòng thử lại.';
         msg.style.display = 'block';
     }
     renderOrderItems();
